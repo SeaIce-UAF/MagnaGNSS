@@ -1,0 +1,10 @@
+% program   : ES 1.9
+% inp file  : G:\.shortcut-targets-by-id\11vpDC1FQuytDqpOLY8_SFOjyxAW--Lno\OTI_ISOPS2\Magnaprobe\data\250112_Parkinglot\mg2_0130.25\Mg2_0130.25O
+% inp file  : G:\.shortcut-targets-by-id\11vpDC1FQuytDqpOLY8_SFOjyxAW--Lno\OTI_ISOPS2\Magnaprobe\data\250112_Parkinglot\Reach-Base-_raw_20250113030403_RINEX_3_03\Reach-Base-_raw_20250113030403.25P
+% inp file  : G:\.shortcut-targets-by-id\11vpDC1FQuytDqpOLY8_SFOjyxAW--Lno\OTI_ISOPS2\Magnaprobe\data\250112_Parkinglot\Reach-Base-_raw_20250113030403_RINEX_3_03\Reach-Base-_raw_20250113030403.25O
+% obs start : 2025/01/13 01:47:28.0 GPST (week2349  92848.0s)
+% obs end   : 2025/01/13 03:15:46.4 GPST (week2349  98146.4s)
+% ref pos   : 64.858180623-147.852244635  197.4426
+%
+% (lat/lon/height=WGS84/ellipsoidal,Q=1:fix,2:float,3:sbas,4:dgps,5:single,6:ppp,ns=# of satellites)
+%  GPST                  latitude(deg) longitude(deg)  height(m)   Q  ns   sdn(m)   sde(m)   sdu(m)  sdne(m)  sdeu(m)  sdun(m) age(s)  ratio
