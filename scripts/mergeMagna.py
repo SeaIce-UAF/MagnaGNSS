@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as pl
 import pandas as pd
 from datetime import timedelta
- 
+import math 
 
 try:
     from geopy import distance
@@ -333,18 +333,76 @@ def plot_heigts_quality(events, title='' ):
         ax1.set_title(title)
 
 
-def get_XY(events,loc0):
-      
-      lat0=loc0[0]
-      lon0=loc0[1]      
-      
-      x=[distance.distance([lat0,lon0],[lat0,lon]).m*np.sign(lon-lon0) for lon in events.lon ]
-      y=[distance.distance([lat0,lon0],[lat,lon0]).m*np.sign(lat-lat0) for lat in events.lat ]       
-      
-      events['x']=x
-      events['y']=y
-      
-      return x,y
+
+
+def get_XY(events,origin=0):  
+    """
+    Transform lat,lon to local coordinates around origin point and add x,y data to events dataframe
+
+    Parameters
+    ----------
+    events : pandas dataframe with Magnaprobe data
+        events data with lat lon colums.
+    origin : TYPE
+        if int: index of coordinate to se as origin of local coordinate system
+        if: [lat,lon] coordinates of origin of local reference system.
+
+    Returns
+    -------
+    x : local x-coordinate in meters (west-east)
+    y : local y-coordinate in meters (south- north)
+
+    """
+     
+    
+    origin=np.array(origin)
+    if len(origin.shape)==0:  
+        p0=[events.lat[origin],events.lon[origin]]
+    elif len(origin.shape)==1:  
+            p0=origin    
+    
+    d=[]
+    bearing=[]
+    for lat,lon in zip(events.lat,events.lon):
+        d.append(distance.distance(p0,[lat,lon]).m)
+        bearing.append(get_bearing(p0,[lat,lon]))
+    
+    d=np.array(d)
+    bearing=np.array(bearing)
+    
+    y=d*np.cos(bearing/360*2*np.pi)
+    x=d*np.sin(bearing/360*2*np.pi)
+    
+    events['x']=x
+    events['y']=y
+    
+    return x,y
+
+
+
+def get_bearing(start, end):
+    # if (type(start) != tuple) or (type(end) != tuple):
+    #     raise TypeError("Only tuples are supported as arguments")
+
+    lat1 = math.radians(start[0])
+    lat2 = math.radians(end[0])
+
+    diffLong = math.radians(end[1] - start[1])
+
+    x = math.sin(diffLong) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - (math.sin(lat1)
+                                           * math.cos(lat2) * math.cos(diffLong))
+
+    initial_bearing = math.atan2(x, y)
+
+    # Now we have the initial bearing but math.atan2 return values
+    # from -180° to + 180° which is not what we want for a compass bearing
+    # The solution is to normalize the initial bearing as shown below
+    initial_bearing = math.degrees(initial_bearing)
+    compass_bearing = (initial_bearing + 360) % 360
+
+    return compass_bearing
+
 
 def get_d(events,loc0):
     
