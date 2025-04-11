@@ -270,9 +270,9 @@ def plot_heigts(events2 ):
 
 
 
-def plot_heigts_quality(events, title='' ):
+def plot_heigts_quality(events, title='',xaxis='distance' ):
     """
-    Plot snow depth and ice and snow surface elevations as a function of distance from the first datapoint.
+    Plot snow depth and ice and snow surface elevations as a function of distance from the first datapoint or time.
     
     
 
@@ -287,11 +287,16 @@ def plot_heigts_quality(events, title='' ):
 
     lat0=events['lat'].iloc[0]
     lon0=events['lon'].iloc[0]
-    d=[]
-    for i in events.index:
-        d.append(distance.distance((lat0,lon0),(events.loc[i,'lat'],events.loc[i,'lon'])).m)
-        
-    d=np.array(d)
+    
+    if xaxis='distance'
+        d=[]
+        for i in events.index:
+            d.append(distance.distance((lat0,lon0),(events.loc[i,'lat'],events.loc[i,'lon'])).m)
+        d=np.array(d)
+        x_label='distance (m)'
+    else:
+        d=events.time
+        x_label='time'
     
     fig,[ax1,ax2,ax3,ax4]=pl.subplots(4,1,sharex=True,figsize=(8,12))
     ax1.plot(d,events.height-events.height.mean()+events.DepthCm/100,'x:',label='snow surface')
@@ -318,7 +323,7 @@ def plot_heigts_quality(events, title='' ):
     ax4b.plot(d,events.ratio,'x:g')
     ax4b.set_ylabel('AR ratio ()')
     ax4.set_ylabel('Fix type ()')
-    ax4.set_xlabel('distance (m)')
+    ax4.set_xlabel(x_label)
     ax4.legend(loc=1)
 
     # Set custom y-axis ticks and labels
