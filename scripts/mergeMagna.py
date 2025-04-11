@@ -313,10 +313,10 @@ def plot_heigts_quality(events, title='' ):
     ax3.legend()
     
     ax4.plot(d,events.Q,'x:',label='Fix quality')
-    ax4.plot([],[],'x:g',label='Number of sateites')
+    ax4.plot([],[],'x:g',label=label='AR ratio')
     ax4b=ax4.twinx()
-    ax4b.plot(d,events.ratio,'x:g',label='AR ratio')
-    ax4b.set_ylabel('Num. Sat. ()')
+    ax4b.plot(d,events.ratio,'x:g')
+    ax4b.set_ylabel('AR ratio ()')
     ax4.set_ylabel('Fix type ()')
     ax4.set_xlabel('distance (m)')
     ax4.legend(loc=1)
