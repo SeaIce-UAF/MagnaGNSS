@@ -280,7 +280,7 @@ def plot_heigts_quality(events, title='',xaxis='distance' ):
     ----------
     events: pandas
         Merged data.
-
+    xaxis: string if ='distance' (default) use distance as xaxis. otherwise time.
 
     """
 
@@ -288,7 +288,7 @@ def plot_heigts_quality(events, title='',xaxis='distance' ):
     lat0=events['lat'].iloc[0]
     lon0=events['lon'].iloc[0]
     
-    if xaxis='distance'
+    if xaxis='distance':
         d=[]
         for i in events.index:
             d.append(distance.distance((lat0,lon0),(events.loc[i,'lat'],events.loc[i,'lon'])).m)
@@ -318,7 +318,7 @@ def plot_heigts_quality(events, title='',xaxis='distance' ):
     ax3.legend()
     
     ax4.plot(d,events.Q,'x:',label='Fix quality')
-    ax4.plot([],[],'x:g',label=label='AR ratio')
+    ax4.plot([],[],'x:g',label='AR ratio')
     ax4b=ax4.twinx()
     ax4b.plot(d,events.ratio,'x:g')
     ax4b.set_ylabel('AR ratio ()')
