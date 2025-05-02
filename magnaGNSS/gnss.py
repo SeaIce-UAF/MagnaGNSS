@@ -3,32 +3,31 @@
 Created on Tue Sep  3 16:54:33 2024
 
 Modified: Dec 17 2024
-Amended: May 1, 2025 by MegaVolts
+Amended: May 1, 2025, by MegaVolts
 @author: AcCap, MegaVolts
 
 """
-import os
+
+from datetime import timedelta
 import numpy as np
 import matplotlib.pyplot as pl
 import pandas as pd
-from datetime import timedelta
-import pylint
 
 try:
     from geopy import distance
 except ModuleNotFoundError as e:
-    print('You need to install geopy with "pip install geopy" ')   
+    print('You need to install geopy with "pip install geopy" ')
     raise e
 
 # %% Default variable
-f_plot = True
-dt_min = 0.1
-window = 1
-tolerance = 1
-deltaH = 8
-deltaS = 16.6
-f_useEvents = True
-preserve_orphan = True
+F_PLOT = True
+DT_MIN = 0.1
+WINDOW = 1
+TOL = 1
+DELTAH = 8
+DELTAS = 16.6
+F_USEEVENT = True
+F_PRESERVE_ORPHAN = True
 
 # %% functions
 def read_events(fp):
@@ -43,16 +42,12 @@ def read_events(fp):
     event_df: pd.DataFrame()
         Dataframe containing the event list
     """
-    # events = pd.DataFrame(columns=['time', 'date', 'GPST', 'lat', 'lon', 'height', 'Q', 'ns',
-    #                               'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio'])
-    # eventsB = pd.DataFrame(columns=['time', 'TOW', 'WNc', 'Source', 'Polarity', 'Offset', 'Offset_TOW',
-    #                                 'RxClkBias', 'PVTAge'])
-
     if fp is None:
-        event_df = pd.DatFrame()
+        event_df = pd.DataFrame()
     elif fp.split('.')[-1]=='txt':
         event_df = pd.read_csv(fp, header=5, sep=',', skip_blank_lines=True,
-                           names=['TOW', 'WNc', 'Source', 'Polarity', 'Offset' , 'Offset_TOW', 'RxClkBias' , 'PVTAge'])
+                               names=['TOW', 'WNc', 'Source', 'Polarity', 'Offset' , 'Offset_TOW', 'RxClkBias' ,
+                                      'PVTAge'])
         event_df['time']=[gps_to_datetime(event_df.WNc[i], event_df.TOW[i]) for i in range(len(event_df))]
 
     elif fp.split('.')[-1]=='pos':
@@ -63,11 +58,11 @@ def read_events(fp):
         event_df['time'] = pd.to_datetime(event_df['date'] + ' ' + event_df['GPST'])
     else:
         raise ValueError("No event file to open")
-    
+
     return event_df
 
 
-def split_AB(event_df):
+def split_events(event_df):
     """
     :param event_df: pd.DataFrame()
         Dataframe containing events A and B from
@@ -87,16 +82,18 @@ def split_AB(event_df):
 def gps_to_datetime(gps_week, time_of_week):
     # GPS epoch start date (January 6, 1980)
     gps_epoch = pd.Timestamp("1980-01-06")
-    
+
     # Calculate the total time in weeks and seconds
     gps_time = gps_epoch + timedelta(weeks=float(gps_week), seconds=time_of_week)
-    
-    return gps_time   
+
+    return gps_time
 
 
 # get deviation from reference data
-def RMSE_Ref(ref, events, data=[], d_radious=0.25):
-     # radius to look for nearby data points in meters
+def RMSE_Ref(ref, events, data=None, d_radious=0.25):
+    # radius to look for nearby data points in meters
+    if data is None:
+        data = []
     dist=[]
     d_h=[]
     index2=[]
@@ -129,13 +126,13 @@ def RMSE_Ref(ref, events, data=[], d_radious=0.25):
                     dist2.append(d)
                     d_h.append(ref.loc[i,'height']-events.loc[j,'height'])
                     d_h2.append(ref.loc[i,'height']-events.loc[j,'height'])
-            
+
         dist_ref.append(np.mean(dist2))
         d_h_ref.append(np.mean(d_h2))
 
     d_h=np.array(d_h)
     dist=np.array(dist)
-    
+
     Delta_hor=np.mean(np.abs(dist))
     Delta_h=np.mean(np.abs(d_h))
     Delta_hor_std=np.std(dist)
@@ -152,14 +149,13 @@ def RMSE_Ref(ref, events, data=[], d_radious=0.25):
 
 
 # filter events too near
-def filterDoubleClick(events, dt_min=dt_min):
+def filterDoubleClick(events, dt_min=DT_MIN):
     index2=[events.index[0]]
     n = 0
     dts = []
-    
+
     print('\nTrowing out double click events\n------------------------------------')
     for i in events.index[1:]:
-        
         if (events.loc[i,'time']- events.loc[i-1,'time'])<pd.Timedelta(seconds=dt_min):
             index2.append(i)
             print(events.loc[i-1,'time'], ': ',(events.loc[i,'time']- events.loc[i-1,'time']))
@@ -173,21 +169,22 @@ def filterDoubleClick(events, dt_min=dt_min):
     if len(dts) == 0:
         print('No double click event found')
     else:
-        print('Mean dt double points: {:.3f} s'.format(np.mean(dts)))
-        print('Std dt double points: {:.3f} s'.format(np.std(dts)))
-    
+        print(f"Mean dt double points: {np.mean(dts):.3f} s")
+        print(f"Std dt double points: {np.std(dts):.3f} s")
+
     return events
+
 
 # get magnaprobe data
 def add_magna(events, magna, dt_magnaprobe=0, tolerance=0.1, preserve_mg_data=False):
-    ind=magna.copy()
+    ind = magna.copy()
     if isinstance(dt_magnaprobe,pd.Timedelta):
         ind['time']+dt_magnaprobe
     else:
         ind['time']=ind['time']+pd.Timedelta(seconds=dt_magnaprobe)
     ind.set_index('time',inplace=True)
     ii=ind.index.get_indexer(events.time,method='nearest',tolerance=pd.Timedelta(seconds=tolerance))
-    
+
     ii2=ii.copy()
     ii2[ii==-1]=0  # set events not found as first value. They will be set to nan later
 
@@ -214,7 +211,7 @@ def add_magna(events, magna, dt_magnaprobe=0, tolerance=0.1, preserve_mg_data=Fa
     #if not preserve_orphan:
     #    # set magnaprobe values to nan for events not found in Magnaprobe files
     #    events.loc[ii==-1,['Counter', 'DepthCm', 'BattVolts']]=np.nan
-    
+
     return events
 
 
@@ -261,8 +258,8 @@ def cont_to_events(cont,events,dt_mean=1):
 
 
 
-def merge(event_fp, pos_fp, mg_fp, f_plot=f_plot, fig_fp=None,
-         dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS, f_useEvents=f_useEvents):
+def merge(event_fp, pos_fp, mg_fp, f_plot=F_PLOT, fig_fp=None,
+         dt_min=DT_MIN, window=WINDOW, tolerance=TOL, deltaH=DELTAH, deltaS=DELTAS, f_useEvents=f_useEvents):
     """ 
     Parameters
     ----------
@@ -326,7 +323,7 @@ def merge(event_fp, pos_fp, mg_fp, f_plot=f_plot, fig_fp=None,
         eventsA_empty=True
         print('eventsA is empty!! Using Magnaprobe timestamp instead!!')
 
-    if f_plot or fig_fp is not None:
+    if F_PLOT or fig_fp is not None:
         # Plot only for the overlapping time period between magnaprobe and gnss
         t_max = min(magna.time.max(), cont.time.max())
         t_min = max(magna.time.min(), cont.time.min())
@@ -404,13 +401,13 @@ def merge(event_fp, pos_fp, mg_fp, f_plot=f_plot, fig_fp=None,
     events2 = pd.DataFrame(events2)
     eventsB2 = pd.DataFrame(eventsB2)
 
-    if f_plot:
+    if F_PLOT:
         return events2, eventsB2, fig
     else:
         return events2, eventsB2
 
 def save(event_fp, pos_fp, mg_fp,
-         file_save='PPK_Magna.csv', file_saveB='PPK_Magna_B.csv', f_plot=f_plot,
+         file_save='PPK_Magna.csv', file_saveB='PPK_Magna_B.csv', F_PLOT=F_PLOT,
          dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS, f_useEvents=f_useEvents):
     """ 
     Parameters
@@ -423,7 +420,7 @@ def save(event_fp, pos_fp, mg_fp,
         File data magnaprobe.
     filepath: string, optional
         path of files. The default is empty
-    f_plot : TYPE, optional
+    F_PLOT : TYPE, optional
         Produce plot to check sync. The default is True.
     dt_min : TYPE, optional
         filter events nearer then dt_min. The default is 0.1.
@@ -444,7 +441,7 @@ def save(event_fp, pos_fp, mg_fp,
     None
 
     """
-    events2, eventsB2 = merge(event_fp, pos_fp, mg_fp, f_plot=f_plot,
+    events2, eventsB2 = merge(event_fp, pos_fp, mg_fp, F_PLOT=F_PLOT,
          dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS,
          f_useEvents=f_useEvents)
 
