@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as pl
 import pandas as pd
 from datetime import timedelta
+import pylint
 
 try:
     from geopy import distance
@@ -30,33 +31,57 @@ f_useEvents = True
 preserve_orphan = True
 
 # %% functions
-def read_events(filename_events):
-    eventsB = pd.DataFrame(columns=['time', 'TOW', 'WNc', 'Source', 'Polarity', 'Offset', 'Offset_TOW', 'RxClkBias', 'PVTAge'])
-    events = pd.DataFrame(columns=['time', 'date', 'GPST', 'lat', 'lon', 'height', 'Q', 'ns',
-                                  'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio'])
-    if filename_events is None:
-        print("No events files")
-    elif filename_events.split('.')[-1]=='txt':
-        events = pd.read_csv(filename_events, header=5, sep=',', skip_blank_lines=True,
-                           names=['TOW', 'WNc', 'Source', 'Polarity', 'Offset' , 'Offset_TOW', 'RxClkBias' , 'PVTAge'])
+def read_events(fp):
+    """
+    Parameters
+    ----------
+    fp : STRING
+        Filepath to event or position data file(.dat)
 
-        events['time']=[gps_to_datetime(events.WNc[i], events.TOW[i]) for i in range(len(events))]
-        
-        eventsB=events.query("Source=='EventB' ")
-        events=events.query("Source=='EventA' ")
-        
-        events.reset_index(drop=True, inplace=True)
-        eventsB.reset_index(drop=True, inplace=True)
-        
-    elif filename_events.split('.')[-1]=='pos':
-        events=pd.read_csv(filename_events, header=9, sep=r'\s+',
+    Returns
+    -------
+    event_df: pd.DataFrame()
+        Dataframe containing the event list
+    """
+    # events = pd.DataFrame(columns=['time', 'date', 'GPST', 'lat', 'lon', 'height', 'Q', 'ns',
+    #                               'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio'])
+    # eventsB = pd.DataFrame(columns=['time', 'TOW', 'WNc', 'Source', 'Polarity', 'Offset', 'Offset_TOW',
+    #                                 'RxClkBias', 'PVTAge'])
+
+    if fp is None:
+        event_df = pd.DatFrame()
+    elif fp.split('.')[-1]=='txt':
+        event_df = pd.read_csv(fp, header=5, sep=',', skip_blank_lines=True,
+                           names=['TOW', 'WNc', 'Source', 'Polarity', 'Offset' , 'Offset_TOW', 'RxClkBias' , 'PVTAge'])
+        event_df['time']=[gps_to_datetime(event_df.WNc[i], event_df.TOW[i]) for i in range(len(event_df))]
+
+    elif fp.split('.')[-1]=='pos':
+        event_df = pd.read_csv(fp, header=9, sep=r'\s+',
                            names=['date', 'GPST', 'lat', 'lon', 'height', 'Q', 'ns',
                                   'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio',])
-        events['time']=pd.to_datetime(events['date']+' '+events['GPST'])
+        event_df['time'] = pd.to_datetime(event_df['date'] + ' ' + event_df['GPST'])
+        event_df['time'] = pd.to_datetime(event_df['date'] + ' ' + event_df['GPST'])
     else:
-        raise ValueError("Can't open events file!")
+        raise ValueError("No event file to open")
     
-    return events, eventsB
+    return event_df
+
+
+def split_AB(event_df):
+    """
+    :param event_df: pd.DataFrame()
+        Dataframe containing events A and B from
+    :return: eventA_df: pd.DataFrame()
+        Dataframe containing the event A, corresponding to snow depth measurement with magnaprobe
+    :return: eventB_df: pd.DataFrame()
+        Dataframe containing the event B
+    """
+    eventB_df=event_df.query("Source=='EventB' ")
+    eventA_df=event_df.query("Source=='EventA' ")
+
+    eventA_df.reset_index(drop=True, inplace=True)
+    eventB_df.reset_index(drop=True, inplace=True)
+    return eventA_df, eventB_df
 
 
 def gps_to_datetime(gps_week, time_of_week):
@@ -68,9 +93,10 @@ def gps_to_datetime(gps_week, time_of_week):
     
     return gps_time   
 
+
 # get deviation from reference data
 def RMSE_Ref(ref, events, data=[], d_radious=0.25):
-     # radious to look for nearby data points in meters 
+     # radius to look for nearby data points in meters
     dist=[]
     d_h=[]
     index2=[]
@@ -85,7 +111,6 @@ def RMSE_Ref(ref, events, data=[], d_radious=0.25):
             d=distance.distance([ref.loc[i,'lat'],ref.loc[i,'lon']],[events.loc[j,'lat'],events.loc[j,'lon']]).m
     
             if  d< d_radious:
-                
                 if len(data)>0:
                     # go through data and find same timestamp
                     for k in data.index:
@@ -97,7 +122,6 @@ def RMSE_Ref(ref, events, data=[], d_radious=0.25):
                             dist2.append(d)
                             d_h.append(ref.loc[i,'height']-data.loc[k,'height'])
                             d_h2.append(ref.loc[i,'height']-data.loc[k,'height'])
-                    
                 else:
                     index.append(j)
                     index2.append(j)
@@ -155,7 +179,6 @@ def filterDoubleClick(events, dt_min=dt_min):
     return events
 
 # get magnaprobe data
-# preserve_mg_data True for testing
 def add_magna(events, magna, dt_magnaprobe=0, tolerance=0.1, preserve_mg_data=False):
     ind=magna.copy()
     if isinstance(dt_magnaprobe,pd.Timedelta):
@@ -193,9 +216,6 @@ def add_magna(events, magna, dt_magnaprobe=0, tolerance=0.1, preserve_mg_data=Fa
     #    events.loc[ii==-1,['Counter', 'DepthCm', 'BattVolts']]=np.nan
     
     return events
-
-
-# get even
 
 
 # get mean of continous data
@@ -240,56 +260,31 @@ def cont_to_events(cont,events,dt_mean=1):
     return pd.DataFrame(lines,index=ind)
 
 
-def get_XY(events,loc0):
-      
-      lat0=loc0[0]
-      lon0=loc0[1]      
-      
-      x=[distance.distance([lat0,lon0],[lat0,lon]).m*np.sign(lon-lon0) for lon in events.lon ]
-      y=[distance.distance([lat0,lon0],[lat,lon0]).m*np.sign(lat-lat0) for lat in events.lat ]       
-      
-      events['x']=x
-      events['y']=y
-      
-      return x,y
 
-
-def get_d(events,loc0):
-    
-    lat0=loc0[0]
-    lon0=loc0[1]   
-    d=[]
-    for i in events.index:
-        d.append(distance.distance((lat0,lon0),(events.loc[i,'lat'],events.loc[i,'lon'])).m)
-    events['d']=np.array(d)
-    
-
-def merge(filename_events, filename_cont, file_magna,
-         f_plot=f_plot,
-         dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS, f_useEvents=f_useEvents,
-         fig_name=None):
+def merge(event_fp, pos_fp, mg_fp, f_plot=f_plot, fig_fp=None,
+         dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS, f_useEvents=f_useEvents):
     """ 
     Parameters
     ----------
-    filename_events : TYPE
-        Event data GNSS.   .txt from RXTools or .pos form Emlid studio
-    filename_cont : TYPE
-        Continus data GNSS.  .pos form Emlid studio
-    file_magna : TYPE
-        File data magnaprobe.
-    filepath: string, optional
-        path of files. The default is empty
-    plot : TYPE, optional
+    mg_fp : STRING
+        Filepath to raw data file from magnaprobe (.dat)
+    pos_fp : STRING
+        Filepath to the continuous GNSS position data file form Emlid studio (.pos)
+    event_fp : STRING, optional
+        Filepath to GNSS event data file from RXTools (.txt) or form Emlid studio (.pos)
+    f_plot : BOOL, optional
         Produce plot to check sync. The default is True.
-    dt_min : TYPE, optional
-        filter events nearer then dt_min. The default is 0.1.
-    window : TYPE, optional
-        Window size for averaging continous data around event in 's'. The default is 0.5.
-    tolerance : TYPE, optional
-        tolerance in 's'for syncing Magnaprobe and GNSS. The default is 0.1.
-    deltaH : TYPE, optional
+    fig_fp : STRING, optional
+        Filepath to figure output for the plot. Default is None.
+    dt_min : FLOAT, optional
+        Filter events nearer than dt_min. The default is 0.1 min.
+    window : FLOAT, optional
+        Duration in seconds of the period centered on an event used for averaging continuous data. The default is 0.5 s.
+    tolerance : FLOAT, optional
+        Tolerance in seconds for syncing GNSS time to maganprobe timestamp. The default is 0.1.
+    deltaH : FLOAT, optional
         Time shift Magnaprobe in hours. GPS time to local time. The default is 8.
-    deltaS : TYPE, optional
+    deltaS : FLOAT, optional
         Time shift between Magnaprobe and GNSS in seconds (leap seconds+ error). The default is 16.62
     useEvents: bool, optional
             Default true. If false the GNSS Timestamps are ignored and the data are synced based on the Magnaprobe time. 
@@ -297,28 +292,20 @@ def merge(filename_events, filename_cont, file_magna,
                 
     Returns
     -------
-    events2: pd.DataFrame()
-    events2B: pd.DataFrame()
-    
+        None
     """
     
-    dt_min=float(dt_min) 
-    dt_mean=float(window)/2
-    tolerance=float(tolerance) 
-    deltaH=float(deltaH)
-    deltaS=float(deltaS)
-    eventsA_empty=False
-    
+    dt_mean = float(window)/2
     
     # read files
-    events, eventsB = read_events(filename_events)
+    events, eventsB = read_events(event_fp)
 
-    cont = pd.read_csv(filename_cont, header=9, sep=r'\s+',
+    cont = pd.read_csv(pos_fp, header=9, sep=r'\s+',
                        names=['date', 'GPST', 'lat', 'lon', 'height', 'Q', 'ns', 'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio'])
 
     cont['time'] = pd.to_datetime(cont['date']+' '+cont['GPST'])
     
-    magna=pd.read_csv(file_magna, skiprows=4,
+    magna=pd.read_csv(mg_fp, skiprows=4,
                      names=["TIMESTAMP","RECORD","Counter","DepthCm","BattVolts",
                             "latitude_a","latitude_b","Longitude_a","Longitude_b","fix_quality",
                             "nmbr_satellites","HDOP","altitudeB","DepthVolts","LatitudeDDDDD","LongitudeDDDDD",
@@ -339,7 +326,7 @@ def merge(filename_events, filename_cont, file_magna,
         eventsA_empty=True
         print('eventsA is empty!! Using Magnaprobe timestamp instead!!')
 
-    if f_plot or fig_name is not None:
+    if f_plot or fig_fp is not None:
         # Plot only for the overlapping time period between magnaprobe and gnss
         t_max = min(magna.time.max(), cont.time.max())
         t_min = max(magna.time.min(), cont.time.min())
@@ -389,8 +376,8 @@ def merge(filename_events, filename_cont, file_magna,
             ax.set_xlabel('time')
         fig.suptitle('Merge quality check')
         fig.show()
-        if fig_name is not None:
-            fig.savefig(fig_name, dpi='150')
+        if fig_fp is not None:
+            fig.savefig(fig_fp, dpi='150')
 
     # filter events too near
     events2 = filterDoubleClick(events,dt_min=dt_min)
@@ -414,12 +401,6 @@ def merge(filename_events, filename_cont, file_magna,
     #eventsA
     events2=events2.round(decimals)
 
-    # Is this just for rounding? If yes, why not use np.round(), it will not throw an error with nan value
-    # Is that even necessary
-    # events2.Counter = np.int32(events2.Counter)
-    # events2.Q=np.int32(events2.Q)
-    # events2.ns=np.int32(events2.ns)
-
     events2 = pd.DataFrame(events2)
     eventsB2 = pd.DataFrame(eventsB2)
 
@@ -428,17 +409,17 @@ def merge(filename_events, filename_cont, file_magna,
     else:
         return events2, eventsB2
 
-def save(filename_events, filename_cont, file_magna,
+def save(event_fp, pos_fp, mg_fp,
          file_save='PPK_Magna.csv', file_saveB='PPK_Magna_B.csv', f_plot=f_plot,
          dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS, f_useEvents=f_useEvents):
     """ 
     Parameters
     ----------
-    filename_events : TYPE
+    event_fp : TYPE
         Event data GNSS.   .txt from RXTools or .pos form Emlid studio
-    filename_cont : TYPE
+    pos_fp : TYPE
         Continus data GNSS.  .pos form Emlid studio
-    file_magna : TYPE
+    mg_fp : TYPE
         File data magnaprobe.
     filepath: string, optional
         path of files. The default is empty
@@ -463,7 +444,7 @@ def save(filename_events, filename_cont, file_magna,
     None
 
     """
-    events2, eventsB2 = merge(filename_events, filename_cont, file_magna, f_plot=f_plot,
+    events2, eventsB2 = merge(event_fp, pos_fp, mg_fp, f_plot=f_plot,
          dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS,
          f_useEvents=f_useEvents)
 
