@@ -24,8 +24,8 @@ F_PLOT = True
 DT_MIN = 0.1
 WINDOW = 1
 TOL = 1
-DELTAH = 8
-DELTAS = 16.6
+DELTA_H = 8
+DELTA_S = 16.6
 F_USEEVENT = True
 F_PRESERVE_ORPHAN = True
 
@@ -71,12 +71,16 @@ def split_events(event_df):
     :return: eventB_df: pd.DataFrame()
         Dataframe containing the event B
     """
-    eventB_df=event_df.query("Source=='EventB' ")
-    eventA_df=event_df.query("Source=='EventA' ")
+    if event_df.empty:
+        event_Adf = pd.DataFrame()
+        event_Bdf = pd.DataFrame()
+    else:
+        event_Adf=event_df.query("Source=='EventB' ")
+        event_Bdf=event_df.query("Source=='EventA' ")
 
-    eventA_df.reset_index(drop=True, inplace=True)
-    eventB_df.reset_index(drop=True, inplace=True)
-    return eventA_df, eventB_df
+        event_Adf.reset_index(drop=True, inplace=True)
+        event_Bdf.reset_index(drop=True, inplace=True)
+    return event_Adf, event_Bdf
 
 
 def gps_to_datetime(gps_week, time_of_week):
@@ -99,14 +103,13 @@ def RMSE_Ref(ref, events, data=None, d_radious=0.25):
     index2=[]
     dist_ref=[]
     d_h_ref=[]
-    
+
     for i in ref.index:
-        index=[]
-        dist2=[]
-        d_h2=[] 
+        index = []
+        dist2 = []
+        d_h2 = []
         for j in events.index:
             d=distance.distance([ref.loc[i,'lat'],ref.loc[i,'lon']],[events.loc[j,'lat'],events.loc[j,'lon']]).m
-    
             if  d< d_radious:
                 if len(data)>0:
                     # go through data and find same timestamp
@@ -133,16 +136,16 @@ def RMSE_Ref(ref, events, data=None, d_radious=0.25):
     d_h=np.array(d_h)
     dist=np.array(dist)
 
-    Delta_hor=np.mean(np.abs(dist))
-    Delta_h=np.mean(np.abs(d_h))
-    Delta_hor_std=np.std(dist)
-    Delta_h_std=np.std(np.abs(d_h))
-    RMSE_h=np.sqrt(np.sum(d_h**2)/len(d_h))
-    RMSE_x=np.sqrt(np.sum(dist**2)/len(dist))
-    print('Delta_h= {:.3f} +-{:.4f} m'.format(Delta_h,Delta_h_std))
-    print('Delta_x_hor={:.3f} +-{:.4f} m'.format(Delta_hor,Delta_hor_std))
-    print('RMSE(h)= {:.3f} m'.format(RMSE_h))
-    print('RMSE(x)= {:.3f} m'.format(RMSE_x))
+    delta_hor = np.mean(np.abs(dist))
+    delta_h = np.mean(np.abs(d_h))
+    delta_hor_std = np.std(dist)
+    delta_h_std = np.std(np.abs(d_h))
+    RMSE_h = np.sqrt(np.sum(d_h**2) / len(d_h))
+    RMSE_x = np.sqrt(np.sum(dist**2) / len(dist))
+    print(f'Delta_h= {delta_h:.3f} +-{delta_h_std:.4f} m')
+    print(f'Delta_x_hor={delta_hor:.3f} +-{delta_hor_std:.4f} m')
+    print(f'RMSE(h)= {RMSE_h:.3f} m')
+    print(f'RMSE(x)= {RMSE_x:.3f} m')
 
     return  RMSE_h,RMSE_x,index2,d_h,dist,dist_ref,d_h_ref
 
@@ -258,8 +261,8 @@ def cont_to_events(cont,events,dt_mean=1):
 
 
 
-def merge(event_fp, pos_fp, mg_fp, f_plot=F_PLOT, fig_fp=None,
-         dt_min=DT_MIN, window=WINDOW, tolerance=TOL, deltaH=DELTAH, deltaS=DELTAS, f_useEvents=f_useEvents):
+def merge(mg_fp, pos_fp, event_fp=None, f_plot=F_PLOT, fig_fp=None,
+         dt_min=DT_MIN, window=WINDOW, tolerance=TOL, deltaH=DELTA_H, deltaS=DELTA_S, f_useEvents=F_USEEVENT):
     """ 
     Parameters
     ----------
@@ -295,8 +298,8 @@ def merge(event_fp, pos_fp, mg_fp, f_plot=F_PLOT, fig_fp=None,
     dt_mean = float(window)/2
     
     # read files
-    events, eventsB = read_events(event_fp)
-
+    event_df = read_events(event_fp)
+    event_Adf, event_Bdf = split_events(event_df)
     cont = pd.read_csv(pos_fp, header=9, sep=r'\s+',
                        names=['date', 'GPST', 'lat', 'lon', 'height', 'Q', 'ns', 'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio'])
 
@@ -316,14 +319,13 @@ def merge(event_fp, pos_fp, mg_fp, f_plot=F_PLOT, fig_fp=None,
     
     # time difference
     magna['time']=magna['time']+pd.Timedelta(hours=deltaH, minutes=00, seconds=deltaS)
-    
-    
+
     if len(events)==0 or not f_useEvents:
         events = pd.DataFrame(magna['time'].values,columns=['time'])
         eventsA_empty=True
         print('eventsA is empty!! Using Magnaprobe timestamp instead!!')
 
-    if F_PLOT or fig_fp is not None:
+    if f_plot or fig_fp is not None:
         # Plot only for the overlapping time period between magnaprobe and gnss
         t_max = min(magna.time.max(), cont.time.max())
         t_min = max(magna.time.min(), cont.time.min())
@@ -406,65 +408,41 @@ def merge(event_fp, pos_fp, mg_fp, f_plot=F_PLOT, fig_fp=None,
     else:
         return events2, eventsB2
 
-def save(event_fp, pos_fp, mg_fp,
-         file_save='PPK_Magna.csv', file_saveB='PPK_Magna_B.csv', F_PLOT=F_PLOT,
-         dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS, f_useEvents=f_useEvents):
+def save(event_df, output_fp='PPK_Magna.csv',columns=None):
     """ 
     Parameters
     ----------
-    event_fp : TYPE
-        Event data GNSS.   .txt from RXTools or .pos form Emlid studio
-    pos_fp : TYPE
-        Continus data GNSS.  .pos form Emlid studio
-    mg_fp : TYPE
-        File data magnaprobe.
-    filepath: string, optional
-        path of files. The default is empty
-    F_PLOT : TYPE, optional
-        Produce plot to check sync. The default is True.
-    dt_min : TYPE, optional
-        filter events nearer then dt_min. The default is 0.1.
-    window : TYPE, optional
-        Window size for averaging continous data around event in 's'. The default is 0.5.
-    tolerance : TYPE, optional
-        tolerance in 's'for syncing Magnaprobe and GNSS. The default is 0.1.
-    deltaH : TYPE, optional
-        Time shift Magnaprobe in hours. GPS time to local time. The default is 8.
-    deltaS : TYPE, optional
-        Time shift between Magnaprobe and GNSS in seconds (leap seconds+ error). The default is 16.62
-    useEvents: bool, optional
-            Default true. If false the GNSS Timestamps are ignored and the data are synced based on the Magnaprobe time. 
-            To be used in case the conenction between the GNSS and Magnaprobe didn't work. 
-
+    event_df : pd.DataFrame()
+        Dataframe containing data
+    output_fp: STRING
+        Filepath of the output file use to save the dataframe
     Returns
     -------
-    None
+    Nothing
 
     """
-    events2, eventsB2 = merge(event_fp, pos_fp, mg_fp, F_PLOT=F_PLOT,
-         dt_min=dt_min, window=window, tolerance=tolerance, deltaH=deltaH, deltaS=deltaS,
-         f_useEvents=f_useEvents)
-
-
-    # round numbers
-    keys=['lat', 'lon', 'height', 'Q',  'sdn', 'sde', 'sdu', 'sdne', 'sdeu',
-           'sdun',  'lat_std', 'lon_std', 'height_std','age','ratio','ns']
-    decimals = pd.Series([9,9,3,0,4,4,4,4,4,4,11,11,4,2,2,0],
-                         index=keys)
-
-    # save files
-    events2.to_csv(file_save, index=False,
-                   columns=['time', 'Counter', 'lat', 'lon', 'height', 'DepthCm',
+    if columns is None:
+        columns = ['time', 'Counter', 'lat', 'lon', 'height', 'DepthCm',
                             'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio',
                             'lat_std', 'lon_std', 'height_std', 'Q', 'ns',
-                            'BattVolts'])
+                            'BattVolts']
+        for col in columns:
+            if col not in event_df:
+                columns.remove(col)
 
-    # eventsB
-    if len(eventsB2) > 0:
-        eventsB2 = eventsB2.round(decimals)
-        eventsB2.Q = np.int32(eventsB2.Q)
-        eventsB2.ns = np.int32(eventsB2.ns)
-        eventsB2.to_csv(file_save, index=False,
-                        columns=['time', 'lat', 'lon', 'height',
-                                 'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun', 'age', 'ratio',
-                                 'lat_std', 'lon_std', 'height_std', 'Q', 'ns'])
+    # Number rounding
+    round_dict = dict(zip(['lat', 'lon', 'height', 'Q',  'sdn', 'sde', 'sdu', 'sdne', 'sdeu', 'sdun',  'lat_std',
+                           'lon_std', 'height_std','age','ratio','ns'],
+                          [9, 9, 3, 0, 4, 4, 4, 4, 4, 4, 11, 11, 4, 2, 2, 0]))
+    decimals = pd.Series(round_dict)
+    for key in round_dict.keys():
+        if key not in columns:
+            decimals = decimals.drop(key)
+
+    event_df = event_df.round(decimals)
+    event_df.Q = np.int32(event_df.Q)
+    event_df.ns = np.int32(event_df.ns)
+    event_df.Counter = np.int32(event_df.Counter)
+    # save files
+    event_df.to_csv(output_fp, index=False,
+                   columns=columns)
