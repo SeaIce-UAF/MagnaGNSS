@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# pylint: skip-file
+# -1: [file-ignored]
 """
 Created on Mon Jan 13 15:37:42 2025
 

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# pylint: skip-file
+# -1: [file-ignored]
 """
 Created on Tue Sep  3 16:54:33 2024
 
@@ -120,23 +122,28 @@ def RMSE_Ref(ref, events,data=[],d_radious=0.25):
 
 # filter events too near
 def filterDoubleClick(events,dt_min=0.3):
-    index2=[events.index[0]]
-    n=0
-    dts=[]
+    # index2=[events.index[0]]
+    # n=0
+    # dts=[]
     
     print('\nTrowing out double click events\n------------------------------------')
-    for i in events.index[1:]:
-        
-        if (events.loc[i,'time']- events.loc[i-1,'time'])<pd.Timedelta(seconds=dt_min):
-            index2.append(i)
-            print(events.loc[i-1,'time'], ': ',(events.loc[i,'time']- events.loc[i-1,'time']))
-            n+=1
-            dts.append((events.loc[i,'time']- events.loc[i-1,'time']).total_seconds())
-            
-    index2=np.array(index2)
-    events=events.drop(index=index2)
-    events.set_index(pd.RangeIndex(0,len(events)),inplace=True)
-    
+    # for i in events.index[1:]:
+    #     # TODO rename dt_min to dt_sec?
+    #     if (events.loc[i,'time']- events.loc[i-1,'time'])<pd.Timedelta(seconds=dt_min):
+    #         index2.append(i)
+    #         print(events.loc[i-1,'time'], ': ',(events.loc[i,'time']- events.loc[i-1,'time']))
+    #         n+=1
+    #         dts.append((events.loc[i,'time']- events.loc[i-1,'time']).total_seconds())
+    #
+    # index2=np.array(index2)
+    # events=events.drop(index=index2)
+
+    # events.set_index(pd.RangeIndex(0,len(events)),inplace=True)
+    index_dc = events.loc[events.datetime.diff() < pd.Timedelta(minutes=dt_min)].index
+    dts = events.datetime.diff()[index_dc]
+    events=events.drop(index=index_dc)
+    events.reset_index(drop=True, inplace=True)
+
     print('Mean dt double points: {:.3f} s'.format(np.mean(dts)))
     print('Std dt double points: {:.3f} s'.format(np.std(dts)))
     
@@ -288,7 +295,7 @@ def plot_heigts_quality(events, title='',xaxis='distance' ):
     lat0=events['lat'].iloc[0]
     lon0=events['lon'].iloc[0]
     
-    if xaxis='distance':
+    if xaxis=='distance':
         d=[]
         for i in events.index:
             d.append(distance.distance((lat0,lon0),(events.loc[i,'lat'],events.loc[i,'lon'])).m)
